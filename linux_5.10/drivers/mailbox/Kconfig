@@ -254,4 +254,12 @@ config QCOM_IPCC
 	  acts as an interrupt controller for receiving interrupts from clients.
 	  Say Y here if you want to build this driver.
 
+config CVITEK_MBOX
+	tristate "cvitek mailbox support"
+	depends on ARCH_CVITEK || COMPILE_TEST
+	help
+	  Say y here to support CVITEK's mailbox driver for inter-processor communication
+	  between CPU cores on CVITEK SoCs.
+	  This can be either built-in or a loadable module.
+
 endif

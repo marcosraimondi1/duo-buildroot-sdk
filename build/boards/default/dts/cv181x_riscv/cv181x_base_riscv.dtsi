@@ -323,7 +323,7 @@
 		interrupt-parent = <&plic0>;
 	};
 
-	rtos_cmdqu {
+	mbox {
 		interrupts = <101 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "mailbox";
 		interrupt-parent = <&plic0>;

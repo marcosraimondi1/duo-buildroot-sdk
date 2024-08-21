@@ -37,6 +37,10 @@
        clock-frequency = <100000>;
 };
 
+&mbox {
+	status = "okay";
+};
+
 / {
 	model = "Milk-V Duo";
 };

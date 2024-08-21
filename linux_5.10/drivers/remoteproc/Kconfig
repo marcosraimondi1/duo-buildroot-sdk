@@ -291,6 +291,8 @@ config TI_K3_R5_REMOTEPROC
 config CVITEK_REMOTEPROC
 	tristate "cvitek remoteproc support"
 	depends on ARCH_CVITEK
+	select MAILBOX
+	select CVITEK_MBOX
 	help
 	  Say y here to support CVITEK's processors via the remote
 	  processor framework.

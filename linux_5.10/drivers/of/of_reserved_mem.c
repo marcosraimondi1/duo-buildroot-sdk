@@ -22,7 +22,7 @@
 #include <linux/slab.h>
 #include <linux/memblock.h>
 
-#define MAX_RESERVED_REGIONS	4
+#define MAX_RESERVED_REGIONS	64
 
 #if defined(CONFIG_ARCH_CVITEK)
 struct reserved_mem_size_entry {

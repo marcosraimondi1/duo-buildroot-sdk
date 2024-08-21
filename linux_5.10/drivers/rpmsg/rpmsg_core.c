@@ -241,7 +241,7 @@ EXPORT_SYMBOL(rpmsg_trysendto);
  * Returns mask representing the current state of the endpoint's send buffers
  */
 __poll_t rpmsg_poll(struct rpmsg_endpoint *ept, struct file *filp,
-			poll_table *wait)
+		    poll_table *wait)
 {
 	if (WARN_ON(!ept))
 		return 0;
@@ -283,6 +283,27 @@ int rpmsg_trysend_offchannel(struct rpmsg_endpoint *ept, u32 src, u32 dst,
 }
 EXPORT_SYMBOL(rpmsg_trysend_offchannel);
 
+/**
+ * rpmsg_get_mtu() - get maximum transmission buffer size for sending message.
+ * @ept: the rpmsg endpoint
+ *
+ * This function returns maximum buffer size available for a single outgoing message.
+ *
+ * Return: the maximum transmission size on success and an appropriate error
+ * value on failure.
+ */
+
+ssize_t rpmsg_get_mtu(struct rpmsg_endpoint *ept)
+{
+	if (WARN_ON(!ept))
+		return -EINVAL;
+	if (!ept->ops->get_mtu)
+		return -ENOTSUPP;
+
+	return ept->ops->get_mtu(ept);
+}
+EXPORT_SYMBOL(rpmsg_get_mtu);
+
 /*
  * match a rpmsg channel with a channel info struct.
  * this is used to make sure we're not creating rpmsg devices for channels
@@ -310,58 +331,55 @@ struct device *rpmsg_find_device(struct device *parent,
 				 struct rpmsg_channel_info *chinfo)
 {
 	return device_find_child(parent, chinfo, rpmsg_device_match);
-
 }
 EXPORT_SYMBOL(rpmsg_find_device);
 
 /* sysfs show configuration fields */
-#define rpmsg_show_attr(field, path, format_string)			\
-static ssize_t								\
-field##_show(struct device *dev,					\
-			struct device_attribute *attr, char *buf)	\
-{									\
-	struct rpmsg_device *rpdev = to_rpmsg_device(dev);		\
-									\
-	return sprintf(buf, format_string, rpdev->path);		\
-}									\
-static DEVICE_ATTR_RO(field);
+#define rpmsg_show_attr(field, path, format_string)                            \
+	static ssize_t field##_show(struct device *dev,                        \
+				    struct device_attribute *attr, char *buf)  \
+	{                                                                      \
+		struct rpmsg_device *rpdev = to_rpmsg_device(dev);             \
+                                                                               \
+		return sprintf(buf, format_string, rpdev->path);               \
+	}                                                                      \
+	static DEVICE_ATTR_RO(field);
 
-#define rpmsg_string_attr(field, member)				\
-static ssize_t								\
-field##_store(struct device *dev, struct device_attribute *attr,	\
-	      const char *buf, size_t sz)				\
-{									\
-	struct rpmsg_device *rpdev = to_rpmsg_device(dev);		\
-	char *new, *old;						\
-									\
-	new = kstrndup(buf, sz, GFP_KERNEL);				\
-	if (!new)							\
-		return -ENOMEM;						\
-	new[strcspn(new, "\n")] = '\0';					\
-									\
-	device_lock(dev);						\
-	old = rpdev->member;						\
-	if (strlen(new)) {						\
-		rpdev->member = new;					\
-	} else {							\
-		kfree(new);						\
-		rpdev->member = NULL;					\
-	}								\
-	device_unlock(dev);						\
-									\
-	kfree(old);							\
-									\
-	return sz;							\
-}									\
-static ssize_t								\
-field##_show(struct device *dev,					\
-	     struct device_attribute *attr, char *buf)			\
-{									\
-	struct rpmsg_device *rpdev = to_rpmsg_device(dev);		\
-									\
-	return sprintf(buf, "%s\n", rpdev->member);			\
-}									\
-static DEVICE_ATTR_RW(field)
+#define rpmsg_string_attr(field, member)                                       \
+	static ssize_t field##_store(struct device *dev,                       \
+				     struct device_attribute *attr,            \
+				     const char *buf, size_t sz)               \
+	{                                                                      \
+		struct rpmsg_device *rpdev = to_rpmsg_device(dev);             \
+		char *new, *old;                                               \
+                                                                               \
+		new = kstrndup(buf, sz, GFP_KERNEL);                           \
+		if (!new)                                                      \
+			return -ENOMEM;                                        \
+		new[strcspn(new, "\n")] = '\0';                                \
+                                                                               \
+		device_lock(dev);                                              \
+		old = rpdev->member;                                           \
+		if (strlen(new)) {                                             \
+			rpdev->member = new;                                   \
+		} else {                                                       \
+			kfree(new);                                            \
+			rpdev->member = NULL;                                  \
+		}                                                              \
+		device_unlock(dev);                                            \
+                                                                               \
+		kfree(old);                                                    \
+                                                                               \
+		return sz;                                                     \
+	}                                                                      \
+	static ssize_t field##_show(struct device *dev,                        \
+				    struct device_attribute *attr, char *buf)  \
+	{                                                                      \
+		struct rpmsg_device *rpdev = to_rpmsg_device(dev);             \
+                                                                               \
+		return sprintf(buf, "%s\n", rpdev->member);                    \
+	}                                                                      \
+	static DEVICE_ATTR_RW(field)
 
 /* for more info, see Documentation/ABI/testing/sysfs-bus-rpmsg */
 rpmsg_show_attr(name, id.name, "%s\n");
@@ -370,8 +388,8 @@ rpmsg_show_attr(dst, dst, "0x%x\n");
 rpmsg_show_attr(announce, announce ? "true" : "false", "%s\n");
 rpmsg_string_attr(driver_override, driver_override);
 
-static ssize_t modalias_show(struct device *dev,
-			     struct device_attribute *attr, char *buf)
+static ssize_t modalias_show(struct device *dev, struct device_attribute *attr,
+			     char *buf)
 {
 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
 	ssize_t len;
@@ -397,7 +415,7 @@ ATTRIBUTE_GROUPS(rpmsg_dev);
 
 /* rpmsg devices and drivers are matched using the service name */
 static inline int rpmsg_id_match(const struct rpmsg_device *rpdev,
-				  const struct rpmsg_device_id *id)
+				 const struct rpmsg_device_id *id)
 {
 	return strncmp(id->name, rpdev->id.name, RPMSG_NAME_SIZE) == 0;
 }
@@ -431,7 +449,7 @@ static int rpmsg_uevent(struct device *dev, struct kobj_uevent_env *env)
 		return ret;
 
 	return add_uevent_var(env, "MODALIAS=" RPMSG_DEVICE_MODALIAS_FMT,
-					rpdev->id.name);
+			      rpdev->id.name);
 }
 
 /*
@@ -505,12 +523,12 @@ static int rpmsg_dev_remove(struct device *dev)
 }
 
 static struct bus_type rpmsg_bus = {
-	.name		= "rpmsg",
-	.match		= rpmsg_dev_match,
-	.dev_groups	= rpmsg_dev_groups,
-	.uevent		= rpmsg_uevent,
-	.probe		= rpmsg_dev_probe,
-	.remove		= rpmsg_dev_remove,
+	.name = "rpmsg",
+	.match = rpmsg_dev_match,
+	.dev_groups = rpmsg_dev_groups,
+	.uevent = rpmsg_uevent,
+	.probe = rpmsg_dev_probe,
+	.remove = rpmsg_dev_remove,
 };
 
 int rpmsg_register_device(struct rpmsg_device *rpdev)
@@ -580,7 +598,6 @@ void unregister_rpmsg_driver(struct rpmsg_driver *rpdrv)
 	driver_unregister(&rpdrv->drv);
 }
 EXPORT_SYMBOL(unregister_rpmsg_driver);
-
 
 static int __init rpmsg_init(void)
 {

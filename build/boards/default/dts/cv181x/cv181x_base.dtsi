@@ -32,8 +32,8 @@
 
 	rst: reset-controller {
 		#reset-cells = <1>;
-		compatible = "cvitek,reset";
-		reg = <0x0 0x03003000 0x0 0x10>;
+		compatible = "cvitek,reset", "syscon";
+		reg = <0x0 0x03003000 0x0 0x1000>;
 	};
 
 	restart: restart-controller {
@@ -823,10 +823,11 @@
 		reg-names = "vc_ctrl","vc_sbm","vc_addr_remap";
 	};
 
-	rtos_cmdqu {
-		compatible = "cvitek,rtos_cmdqu";
+	mbox: mbox {
+		compatible = "cvitek,mbox";
 		reg = <0x0 0x01900000 0x0 0x1000>;
-		reg-names = "mailbox";
+		#mbox-cells = <1>;
+		status = "disabled";
 	};
 
 	usb: usb@04340000 {

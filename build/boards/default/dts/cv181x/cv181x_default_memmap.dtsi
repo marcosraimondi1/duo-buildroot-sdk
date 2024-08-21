@@ -22,17 +22,43 @@
 			size = <0x0 CVIMMAP_ION_SIZE>;
 		};
 
-		c906l: rtos_dram@CVIMMAP_FREERTOS_ADDR {
-			reg = <0x0 CVIMMAP_FREERTOS_ADDR 0x0 CVIMMAP_FREERTOS_SIZE>;
+		// FREERTOS_SIZE = 2 * 1M = 2 * 0x100000 = 0x200000
+		// FREERTOS_ADDR = DRAM_BASE + DRAM_SIZE - FREERTOS_SIZE
+		//               = 0x80000000 + 256 * 0x100000 - 0x200000
+		//               = 0x8FE00000
+		c906l: c906l@CVIMMAP_FREERTOS_ADDR {
+			reg = <0x0 CVIMMAP_FREERTOS_ADDR 0x0 0x1f8000>;
 			no-map;
 		};
+
+		// vdev0buffer addr = c906l + 0x1f8000 = 0x8fff8000
+		vdev0buffer: vdev0buffer@8fff8000 {
+			reg = <0x0 0x8fff8000 0x0 0x4000>;
+			no-map;
+		};
+
+		// vdev0vring0 addr = vdev0buffer + 0x4000 = 0x8fffc000
+		vdev0vring0: vdev0vring0@8fffc000 {
+			reg = <0x0 0x8fffc000 0x0 0x2000>;
+			no-map;
+		};
+
+		// vdev0vring1 addr = vdev0vring0 + 0x2000 = 0x8fffe000 
+		vdev0vring1: vdev0vring1@8fffe000 {
+			reg = <0x0 0x8fffe000 0x0 0x2000>;
+ 			no-map;
+ 		};
 	};
 
-	c906l_rproc: c906l_rproc@0 {
-		compatible = "cvitek,cv18xx-c906l-rproc";
-		memory-region = <&c906l>;
-		core-name = "cv18xx-c906l";
-		firmware-name = "cvirtos.elf";
+	rproc: rproc {
+		compatible = "sophgo,cv180x-rproc";
+		memory-region = <&c906l>, <&vdev0buffer>, <&vdev0vring0> , <&vdev0vring1>;
+		core-name = "cv180x-rproc";
+		firmware-name = "firmware.elf";
+		syscon = <&rst>;
 		status = "okay";
+		mboxes = <&mbox 2 &mbox 3>;
+		mbox-names = "rx", "tx";
 	};
+
 };
